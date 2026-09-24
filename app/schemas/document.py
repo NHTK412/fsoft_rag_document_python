@@ -13,3 +13,8 @@ class UploadFileResponse(BaseModel):
     object_name: str
     total_chunks: int
     message: str
+
+
+class DeleteRequest(BaseModel):
+    project_id: str = Field(..., description="ID dự án sở hữu tài liệu")
+    object_name: str = Field(..., description="Tên file/đường dẫn object trong MinIO")

@@ -1,3 +1,5 @@
+from app.core.config import settings
+import psycopg
 from typing import List
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -42,3 +44,15 @@ def process_and_index_file(bucket_name: str, object_name: str, project_id: str) 
     chunks = split_documents(docs)
     save_to_vector_db(chunks)
     return len(chunks)
+
+def delete_document(object_name: str, project_id: str):
+    sql = """
+        DELETE FROM langchain_pg_embedding
+        WHERE cmetadata->>'source' = %s
+            AND cmetadata->>'project_id' = %s
+    """
+    with psycopg.connect(conninfo=settings.DB_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute(sql, (object_name, project_id))
+            conn.commit()
+

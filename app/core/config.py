@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int = 5432
     POSTGRES_DB: str = "rag_db"
     PGVECTOR_COLLECTION_NAME: str = "document_embeddings"
+    DB_URL: str = "postgresql://postgres:postgres@localhost:5432/document_manager"
 
     # AI / Google Gemini
     GOOGLE_API_KEY: Optional[str] = None
