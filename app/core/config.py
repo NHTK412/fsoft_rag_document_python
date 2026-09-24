@@ -25,12 +25,18 @@ class Settings(BaseSettings):
 
     # AI / Google Gemini
     GOOGLE_API_KEY: Optional[str] = None
-    EMBEDDING_MODEL_NAME: str = "models/text-embedding-004"
+    EMBEDDING_MODEL_NAME: str = "gemini-embedding-2"
     GEMINI_MODEL_NAME: str = "gemini-1.5-flash"
 
     # Chunking
     CHUNK_SIZE: int = 1000
     CHUNK_OVERLAP: int = 200
+
+    # MiniO
+    MINIO_ENDPOINT: str = "localhost:9000"
+    MINIO_ACCESS_KEY: str = "admin"
+    MINIO_SECRET_KEY: str = "admin123456"
+    MINIO_BUCKET_NAME: str = "document-management"
 
     @computed_field
     @property

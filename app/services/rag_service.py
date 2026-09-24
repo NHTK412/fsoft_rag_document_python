@@ -1,54 +1,72 @@
-from typing import List, Dict, Any
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
+from typing import List
+from langchain_core.documents import Document
 
-from app.services.vector_store import get_vector_store
+from app.services import vector_store
 from app.services.llm_factory import get_llm
-from app.schemas.chat import ChatResponse, SourceDocument
-
-RAG_PROMPT_TEMPLATE = """You are a helpful assistant. Use the following pieces of retrieved context to answer the question.
-If you do not know the answer, say that you don't know based on the provided documents. Keep the answer concise and accurate.
-
-Context:
-{context}
-
-Question:
-{question}
-
-Answer:"""
+from app.schemas.chat import RAGAnswerWithCitations
+from app.prompts.rag_prompts import rag_prompt
 
 
-class RAGService:
-    def __init__(self):
-        self.prompt = ChatPromptTemplate.from_template(RAG_PROMPT_TEMPLATE)
-        self.output_parser = StrOutputParser()
+def format_context_with_sources(documents: List[Document]) -> str:
+    """Format retrieved document chunks with clear source and location citations."""
+    formatted_chunks = []
 
-    def query(self, question: str, k: int = 4) -> ChatResponse:
-        vector_store = get_vector_store()
-        retriever = vector_store.as_retriever(search_kwargs={"k": k})
+    for idx, doc in enumerate(documents, start=1):
+        source = doc.metadata.get("source", "Không rõ tên file")
 
-        # Retrieve relevant chunks
-        docs = retriever.invoke(question)
+        # Xác định vị trí: Trang PDF hoặc Mốc thời gian Video hoặc Excel sheet
+        if "display_page" in doc.metadata or "page" in doc.metadata:
+            page = doc.metadata.get("display_page", doc.metadata.get("page", 0))
+            location = f"Trang {page}"
+        elif "timestamp" in doc.metadata:
+            location = f"Phút {doc.metadata.get('timestamp')}"
+        elif "sheet_name" in doc.metadata:
+            location = f"Sheet: {doc.metadata.get('sheet_name')} - Dòng {doc.metadata.get('row_index')}"
+        else:
+            location = "Toàn bộ tài liệu"
 
-        # Format context string
-        context_text = "\n\n---\n\n".join([doc.page_content for doc in docs])
+        chunk_text = (
+            f"--- [NGUỒN {idx}] ---\n"
+            f"Tệp: {source} | Vị trí: {location}\n"
+            f"Nội dung:\n{doc.page_content}\n"
+        )
+        formatted_chunks.append(chunk_text)
 
-        # Generate response with LLM
-        llm = get_llm()
-        chain = self.prompt | llm | self.output_parser
-        answer = chain.invoke({"context": context_text, "question": question})
+    return "\n".join(formatted_chunks)
 
-        # Format source documents
-        sources = [
-            SourceDocument(content=doc.page_content, metadata=doc.metadata)
-            for doc in docs
-        ]
 
-        return ChatResponse(
-            query=question,
-            answer=answer,
-            sources=sources
+def ask_document(question: str, project_id: str) -> RAGAnswerWithCitations:
+    """
+    RAG QA pipeline:
+    1. Similarity search in PGVector filtered by project_id
+    2. Format context with source citations
+    3. Call Gemini with Structured Output
+    """
+    # 1. Retrieve relevant chunks
+    relevant_docs = vector_store.get_vector_store().similarity_search(
+        query=question,
+        k=4,
+        filter={"project_id": project_id}
+    )
+
+    if not relevant_docs:
+        return RAGAnswerWithCitations(
+            answer="Không tìm thấy tài liệu phù hợp trong dự án này.",
+            citations=[]
         )
 
+    # 2. Format context
+    formatted_context = format_context_with_sources(relevant_docs)
 
-rag_service = RAGService()
+    # 3. Format prompt
+    formatted_prompt = rag_prompt.format_messages(
+        context=formatted_context,
+        question=question
+    )
+
+    # 4. Generate structured answer with Gemini (temperature=0 for factual accuracy)
+    llm = get_llm(temperature=0)
+    structured_llm = llm.with_structured_output(RAGAnswerWithCitations)
+    response = structured_llm.invoke(formatted_prompt)
+
+    return response

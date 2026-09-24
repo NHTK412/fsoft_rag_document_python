@@ -10,11 +10,11 @@ def get_embedding_model() -> GoogleGenerativeAIEmbeddings:
     )
 
 
-def get_llm() -> ChatGoogleGenerativeAI:
+def get_llm(temperature: float = 0.2) -> ChatGoogleGenerativeAI:
     """Return LangChain ChatGoogleGenerativeAI instance."""
     return ChatGoogleGenerativeAI(
         model=settings.GEMINI_MODEL_NAME,
-        temperature=0.2,
+        temperature=temperature,
         google_api_key=settings.GOOGLE_API_KEY
     )
 

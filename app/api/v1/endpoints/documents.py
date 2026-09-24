@@ -1,23 +1,27 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
-from app.schemas.document import DocumentUploadResponse
-from app.services.document_service import document_service
+from fastapi import APIRouter, HTTPException
+from app.schemas.document import UploadFileRequest, UploadFileResponse
+from app.services import document_service
 
 router = APIRouter()
 
 
-@router.post("/upload", response_model=DocumentUploadResponse)
-async def upload_document(file: UploadFile = File(...)):
+@router.post("/", response_model=UploadFileResponse)
+def upload_file(request: UploadFileRequest):
     """
-    Upload and index a document (.pdf, .txt, .md) into PGVector.
+    Tải file từ MinIO, bóc tách nội dung, chia chunks và lưu vector vào PGVector.
     """
     try:
-        chunks_count = document_service.process_and_index_document(file)
-        return DocumentUploadResponse(
-            filename=file.filename or "unknown",
-            chunks_created=chunks_count,
-            message=f"Document successfully indexed into {chunks_count} chunks."
+        total_chunks = document_service.process_and_index_file(
+            bucket_name=request.bucket_name,
+            object_name=request.object_name,
+            project_id=request.project_id
         )
-    except HTTPException:
-        raise
+        return UploadFileResponse(
+            status="success",
+            project_id=request.project_id,
+            object_name=request.object_name,
+            total_chunks=total_chunks,
+            message=f"Đã xử lý và nạp thành công {total_chunks} chunks vào PGVector."
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
