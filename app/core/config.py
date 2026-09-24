@@ -38,9 +38,14 @@ class Settings(BaseSettings):
     MINIO_SECRET_KEY: str = "admin123456"
     MINIO_BUCKET_NAME: str = "document-management"
 
+    # API KEY
+    API_KEY: str = "AWOJAIOFNOSINASVNASJKVNAJKFA6464612324NWFAOFIJOAFASAOIJAIOSA"
+
+
     @computed_field
     @property
     def database_url(self) -> str:
+
         return f"postgresql+psycopg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
     @computed_field

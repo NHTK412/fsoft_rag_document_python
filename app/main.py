@@ -1,3 +1,5 @@
+from app.security.verify_api_key import verify_api_key
+from fastapi import Depends
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -37,7 +39,13 @@ app.add_middleware(
 )
 
 # Include API v1 router
-app.include_router(api_router, prefix=settings.API_V1_STR)
+app.include_router(
+    api_router,
+    prefix=settings.API_V1_STR,
+    dependencies=[
+        Depends(verify_api_key)
+    ]
+)
 
 
 @app.get("/health", tags=["health"])
