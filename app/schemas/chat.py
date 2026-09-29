@@ -1,10 +1,11 @@
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
 
 
 class ChatRequest(BaseModel):
     query: str = Field(..., description="Câu hỏi của người dùng", min_length=1)
     project_id: str = Field(..., description="ID dự án cần tra cứu tài liệu")
+    sources: Optional[List[str]] = Field(default=None, description="Danh sách các s3Key/source tài liệu được chọn để tra cứu (nếu None hoặc rỗng thì tra cứu toàn bộ dự án)")
 
 
 class CitationItem(BaseModel):
