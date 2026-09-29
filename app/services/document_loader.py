@@ -1,3 +1,5 @@
+from langchain_community.document_loaders import TextLoader
+from langchain_community.document_loaders import Docx2txtLoader
 import os
 import tempfile
 from contextlib import contextmanager
@@ -40,6 +42,23 @@ def parse_pdf(file_path: str, origin_name: str, project_id: str) -> List[Documen
         doc.metadata["display_page"] = doc.metadata.get("page", 0) + 1
     return docs
 
+def parse_docs(file_path: str, origin_name:str, project_id: str) -> List[Document]:
+    loader = Docx2txtLoader(file_path)
+    docs = loader.load()
+
+    for doc in docs:
+        doc.metadata["project_id"] = project_id
+        doc.metadata["source"] = origin_name
+    return docs
+
+def parse_txt(file_path:str , origin_name:str, project_id: str) -> List[Document]:
+    loader = TextLoader(file_path)
+    docs = loader.load()
+
+    for doc in docs:
+        doc.metadata["project_id"] = project_id
+        doc.metadata["source"] = origin_name
+    return docs
 
 def load_and_parse_document(bucket_name: str, object_name: str, project_id: str) -> List[Document]:
     """Load file from MinIO and parse into LangChain Documents based on file extension."""
@@ -48,8 +67,9 @@ def load_and_parse_document(bucket_name: str, object_name: str, project_id: str)
         if ext == "pdf":
             docs = parse_pdf(file_path, object_name, project_id)
         elif ext == "docx":
-            # Placeholder cho docx sau này
-            raise NotImplementedError("DOCX parsing will be implemented soon.")
+            docs = parse_docs(file_path, object_name, project_id)
+        elif ext == "md" or ext == "txt":
+            docs = parse_txt(file_path, object_name, project_id)
         else:
             raise ValueError(f"Unsupported file type: {ext}")
     return docs
