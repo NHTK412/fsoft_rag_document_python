@@ -1,103 +1,102 @@
-# RAG Document Service with FastAPI + LangChain + PGVector + Google Gemini
 
-Dự án RAG (Retrieval-Augmented Generation) phục vụ hỏi đáp trên tài liệu (.pdf, .txt, .md), sử dụng:
-- **FastAPI**: Xây dựng RESTful API tốc độ cao, hỗ trợ Swagger UI trực quan.
-- **Google Gemini & Embeddings**: Sử dụng `gemini-1.5-flash` và `models/text-embedding-004` (thông qua `langchain-google-genai`).
-- **LangChain & langchain-postgres**: Quản lý pipeline RAG, text splitters và vector store.
-- **PostgreSQL + PGVector**: Lưu trữ và tìm kiếm vector tương đồng (vector similarity search).
+# Document AI & RAG Service - Python API
 
----
+Dịch vụ AI Backend chuyên trách trích xuất nội dung tài liệu, lập chỉ mục vector và thực hiện truy xuất tri thức theo cơ chế RAG (Retrieval-Augmented Generation), phục vụ chức năng hỏi đáp thông minh theo từng dự án.
 
-## 📁 Cấu trúc thư mục (Directory Structure)
 
-```text
-rag_document/
-├── app/
-│   ├── __init__.py
-│   ├── main.py                     # Entry point FastAPI, CORS, Lifespan init DB
-│   ├── core/
-│   │   ├── __init__.py
-│   │   ├── config.py               # Pydantic BaseSettings quản lý biến môi trường
-│   │   └── database.py             # Kết nối SQLAlchemy & kích hoạt extension pgvector
-│   ├── api/
-│   │   ├── __init__.py
-│   │   └── v1/
-│   │       ├── __init__.py
-│   │       ├── router.py           # Gom nhóm tất cả endpoints v1
-│   │       └── endpoints/
-│   │           ├── __init__.py
-│   │           ├── documents.py    # API Upload & index tài liệu
-│   │           └── chat.py         # API Hỏi đáp (Query RAG)
-│   ├── schemas/                    # Pydantic Schemas (Request/Response models)
-│   │   ├── __init__.py
-│   │   ├── chat.py                 # Schemas cho ChatRequest, ChatResponse
-│   │   └── document.py             # Schemas cho DocumentUploadResponse
-│   └── services/                   # Business logic & LangChain pipeline
-│       ├── __init__.py
-│       ├── llm_factory.py          # Khởi tạo Chat LLM & Embedding models
-│       ├── vector_store.py         # Cấu hình PGVector (langchain-postgres)
-│       ├── document_service.py     # Đọc file, chunking (TextSplitter), nhúng vào PGVector
-│       └── rag_service.py          # Pipeline RAG retrieval + LLM question-answering
-├── data/
-│   └── uploads/                    # Thư mục lưu file tạm khi người dùng tải lên
-├── docker-compose.yml              # File docker chạy PostgreSQL có sẵn PGVector
-├── .env.example                    # File mẫu cấu hình biến môi trường
-├── .gitignore                      # Git ignore
-├── requirements.txt                # Thư viện phụ thuộc
-└── README.md                       # Tài liệu hướng dẫn
-```
 
----
+## Công nghệ sử dụng
 
-## 🚀 Hướng dẫn cài đặt & Khởi chạy
+- **Nền tảng:** Python 3.11+, FastAPI, Uvicorn
+- **Xử lý AI:** LangChain, `langchain-core`, `langchain-community`, `langchain-google-genai`
+- **Mô hình ngôn ngữ và tạo vector:** Google Gemini
+- **Cơ sở dữ liệu vector:** PostgreSQL, PGVector, `langchain-postgres`, SQLAlchemy, `psycopg3`
+- **Xử lý tài liệu:** PyPDF, `python-docx`, bộ phân tích Markdown/Text, `RecursiveCharacterTextSplitter`
+- **Lưu trữ đối tượng:** MinIO Python Client
 
-### 1. Chuẩn bị môi trường
-Tạo và kích hoạt virtual environment:
+
+## Tính năng chính
+
+1. **Trích xuất nội dung tài liệu**
+   - Đọc trực tiếp tệp từ MinIO theo `project_id` và `object_name`.
+   - Hỗ trợ các định dạng:
+     - PDF
+     - DOCX
+     - Markdown (`.md`)
+     - Text (`.txt`)
+
+2. **Chia đoạn và tạo vector**
+   - Tự động chia nội dung thành các đoạn văn bản phù hợp.
+   - Sử dụng cơ chế chồng lấn giữa các đoạn để duy trì ngữ cảnh.
+   - Tạo vector biểu diễn cho từng đoạn văn bản.
+   - Lưu vector vào PGVector cùng metadata:
+     - `project_id`
+     - `source`
+     - `page_number`
+
+3. **Hỏi đáp dựa trên ngữ cảnh**
+   - Tìm kiếm các đoạn tài liệu phù hợp bằng độ tương đồng vector.
+   - Giới hạn phạm vi truy xuất theo danh sách tài liệu được người dùng lựa chọn.
+   - Sinh câu trả lời dựa trên nội dung tài liệu được truy xuất.
+   - Trả về thông tin nguồn tài liệu được sử dụng trong câu trả lời.
+
+
+
+## Khởi chạy dịch vụ
+
+### 1. Tạo môi trường ảo và cài đặt thư viện
+
 ```bash
 python -m venv .venv
-# Trên Windows:
+````
+
+**Windows:**
+
+```bash
 .venv\Scripts\activate
-# Trên Linux/macOS:
+```
+
+**Linux/macOS:**
+
+```bash
 source .venv/bin/activate
 ```
 
-Cài đặt các gói thư viện:
+Cài đặt các thư viện:
+
 ```bash
 pip install -r requirements.txt
 ```
 
 ### 2. Cấu hình biến môi trường
-Sao chép `.env.example` thành `.env` và điền Google Gemini API Key:
-```bash
-cp .env.example .env
+
+Tạo file `.env` tại thư mục gốc:
+
+```env
+GOOGLE_API_KEY=your_google_gemini_api_key
+
+POSTGRES_DB=document_management_db
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+
+MINIO_ENDPOINT=localhost:9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+MINIO_BUCKET_NAME=document-management
 ```
-Cập nhật `GOOGLE_API_KEY` (lấy miễn phí từ [Google AI Studio](https://aistudio.google.com/)) và cấu hình Database trong `.env`.
 
-### 3. Khởi động PostgreSQL + PGVector bằng Docker
+### 3. Khởi chạy dịch vụ FastAPI
+
 ```bash
-docker compose up -d
+fastapi dev app/main.py --port 8000
 ```
 
-### 4. Khởi chạy ứng dụng FastAPI
-```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
+Sau khi khởi chạy thành công:
 
----
+* **API Server:** `http://localhost:8000`
+* **Swagger UI:** `http://localhost:8000/docs`
+* **OpenAPI JSON:** `http://localhost:8000/openapi.json`
 
-## 📌 Kiểm thử API (Swagger UI)
-Truy cập giao diện tương tác: [http://localhost:8000/docs](http://localhost:8000/docs)
 
-1. **Upload tài liệu**:
-   - `POST /api/v1/documents/upload`
-   - Upload file PDF, TXT hoặc Markdown. Hệ thống sẽ tự động bóc tách, cắt chunk và lưu vector vào PGVector.
-
-2. **Hỏi đáp tài liệu (RAG)**:
-   - `POST /api/v1/chat/query`
-   - Body mẫu:
-     ```json
-     {
-       "query": "Nội dung chính của tài liệu là gì?",
-       "k": 4
-     }
-     ```
