@@ -13,7 +13,8 @@ def chat_with_document(request: ChatRequest):
     try:
         response = rag_service.ask_document(
             question=request.query,
-            project_id=request.project_id
+            project_id=request.project_id,
+            sources=request.sources
         )
         return response
     except Exception as e:

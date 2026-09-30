@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from langchain_core.documents import Document
 
 from app.services import vector_store
@@ -35,23 +35,31 @@ def format_context_with_sources(documents: List[Document]) -> str:
     return "\n".join(formatted_chunks)
 
 
-def ask_document(question: str, project_id: str) -> RAGAnswerWithCitations:
+def ask_document(question: str, project_id: str, sources: Optional[List[str]] = None) -> RAGAnswerWithCitations:
     """
     RAG QA pipeline:
-    1. Similarity search in PGVector filtered by project_id
+    1. Similarity search in PGVector filtered by project_id and optional sources
     2. Format context with source citations
     3. Call Gemini with Structured Output
     """
-    # 1. Retrieve relevant chunks
+    # 1. Build filter
+    filter_dict = {"project_id": str(project_id)}
+    if sources and len(sources) > 0:
+        if len(sources) == 1:
+            filter_dict["source"] = sources[0]
+        else:
+            filter_dict["source"] = {"$in": sources}
+
+    # Retrieve relevant chunks
     relevant_docs = vector_store.get_vector_store().similarity_search(
         query=question,
         k=4,
-        filter={"project_id": project_id}
+        filter=filter_dict
     )
 
     if not relevant_docs:
         return RAGAnswerWithCitations(
-            answer="Không tìm thấy tài liệu phù hợp trong dự án này.",
+            answer="Không tìm thấy tài liệu phù hợp trong danh sách tài liệu đã chọn của dự án này.",
             citations=[]
         )
 
